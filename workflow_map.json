@@ -1,0 +1,112 @@
+{
+  "intent": "Create a Black Friday coupon code 'BF2024' that applies a 15% discount only when the order total is above $100 and the customer belongs to the 'VIP' customer group.",
+  "steps": [
+    {
+      "id": "load_promotion_conditions",
+      "ui_action": "Open the promotion creation screen so that available promotion conditions are loaded.",
+      "api_call": {
+        "operation": "promotionConditions",
+        "type": "query",
+        "inputs": {},
+        "outputs": {
+          "minimumOrderAmountConditionCode": "$.data.promotionConditions[?(@.code == 'minimumOrderAmount')].code",
+          "inCustomerGroupConditionCode": "$.data.promotionConditions[?(@.code == 'inCustomerGroup')].code"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "load_promotion_actions",
+      "ui_action": "Open the promotion creation screen so that available promotion actions are loaded.",
+      "api_call": {
+        "operation": "promotionActions",
+        "type": "query",
+        "inputs": {},
+        "outputs": {
+          "orderPercentageDiscountActionCode": "$.data.promotionActions[?(@.code == 'orderPercentageDiscount')].code"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "fetch_vip_group",
+      "ui_action": "When configuring the condition 'Customer is in group', the admin opens the customer-group picker and searches/selects the 'VIP' group.",
+      "api_call": {
+        "operation": "customerGroups",
+        "type": "query",
+        "inputs": {
+          "options": {
+            "filter": {
+              "name": {
+                "contains": "VIP"
+              }
+            },
+            "take": 1
+          }
+        },
+        "outputs": {
+          "vipCustomerGroupId": "$.data.customerGroups.items[0].id",
+          "vipCustomerGroupName": "$.data.customerGroups.items[0].name"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "create_promotion",
+      "ui_action": "Fill in the promotion form (name, coupon code, conditions and actions) and click 'Save' to create the promotion.",
+      "api_call": {
+        "operation": "createPromotion",
+        "type": "mutation",
+        "inputs": {
+          "input": {
+            "enabled": true,
+            "name": "Black Friday 2024",
+            "couponCode": "BF2024",
+            "conditions": [
+              {
+                "code": "{{load_promotion_conditions.minimumOrderAmountConditionCode}}",
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "code": "{{load_promotion_conditions.inCustomerGroupConditionCode}}",
+                "arguments": [
+                  {
+                    "name": "customerGroupId",
+                    "value": "{{fetch_vip_group.vipCustomerGroupId}}"
+                  }
+                ]
+              }
+            ],
+            "actions": [
+              {
+                "code": "{{load_promotion_actions.orderPercentageDiscountActionCode}}",
+                "arguments": [
+                  {
+                    "name": "discount",
+                    "value": "15"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "outputs": {
+          "promotionId": "$.data.createPromotion.id",
+          "createdPromotionName": "$.data.createPromotion.name",
+          "createdPromotionEnabled": "$.data.createPromotion.enabled"
+        }
+      },
+      "dependencies": [
+        "load_promotion_conditions",
+        "load_promotion_actions",
+        "fetch_vip_group"
+      ]
+    }
+  ]
+}
+
