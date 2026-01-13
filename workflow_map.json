@@ -1,5 +1,5 @@
 {
-  "intent": "Create a Black Friday coupon code 'BF2024' that applies a 15% discount only when the order total is above $100 and the customer belongs to the 'VIP' customer group.",
+  "intent": "Create a Black Friday coupon code 'BF2024' that applies a 15% discount only when the order total is above $100 and the customer belongs to the 'VIP' customer group. Set up a new shipping zone for 'Oceania'. Add 'Australia' and 'New Zealand' to this zone. Then, configure a 'Flat Rate' shipping method of $15 that only applies to this zone.",
   "steps": [
     {
       "id": "load_promotion_conditions",
@@ -105,6 +105,126 @@
         "load_promotion_conditions",
         "load_promotion_actions",
         "fetch_vip_group"
+      ]
+    },
+    {
+      "id": "load_shipping_calculators",
+      "ui_action": "Open the shipping method creation screen so that available shipping calculators are loaded.",
+      "api_call": {
+        "operation": "shippingCalculators",
+        "type": "query",
+        "inputs": {},
+        "outputs": {
+          "flatRateCalculatorCode": "$.data.shippingCalculators[?(@.code == 'default-shipping-calculator')].code"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "load_shipping_eligibility_checkers",
+      "ui_action": "Open the shipping method creation screen so that available shipping eligibility checkers are loaded.",
+      "api_call": {
+        "operation": "shippingEligibilityCheckers",
+        "type": "query",
+        "inputs": {},
+        "outputs": {
+          "defaultEligibilityCheckerCode": "$.data.shippingEligibilityCheckers[?(@.code == 'default-shipping-eligibility-checker')].code"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "create_oceania_zone",
+      "ui_action": "Fill in the shipping zone form with name 'Oceania' and click 'Save' to create the zone.",
+      "api_call": {
+        "operation": "createShippingZone",
+        "type": "mutation",
+        "inputs": {
+          "input": {
+            "name": "Oceania"
+          }
+        },
+        "outputs": {
+          "shippingZoneId": "$.data.createShippingZone.id",
+          "shippingZoneName": "$.data.createShippingZone.name"
+        }
+      },
+      "dependencies": []
+    },
+    {
+      "id": "update_oceania_zone",
+      "ui_action": "Add 'Australia' and 'New Zealand' to the 'Oceania' shipping zone by selecting them in the country picker and clicking 'Save'.",
+      "api_call": {
+        "operation": "updateShippingZone",
+        "type": "mutation",
+        "inputs": {
+          "input": {
+            "id": "{{create_oceania_zone.shippingZoneId}}",
+            "members": [
+              {
+                "code": "AU"
+              },
+              {
+                "code": "NZ"
+              }
+            ]
+          }
+        },
+        "outputs": {
+          "updatedShippingZoneId": "$.data.updateShippingZone.id",
+          "updatedShippingZoneMembers": "$.data.updateShippingZone.members[*].code"
+        }
+      },
+      "dependencies": [
+        "create_oceania_zone"
+      ]
+    },
+    {
+      "id": "create_flat_rate_method",
+      "ui_action": "Fill in the shipping method form (name, calculator configuration with rate $15, and assign to 'Oceania' zone) and click 'Save' to create the flat rate shipping method.",
+      "api_call": {
+        "operation": "createShippingMethod",
+        "type": "mutation",
+        "inputs": {
+          "input": {
+            "code": "flat-rate-oceania",
+            "translations": [
+              {
+                "languageCode": "en",
+                "name": "Flat Rate Oceania",
+                "description": "Flat rate shipping for Oceania region"
+              }
+            ],
+            "checker": {
+              "code": "{{load_shipping_eligibility_checkers.defaultEligibilityCheckerCode}}",
+              "arguments": []
+            },
+            "calculator": {
+              "code": "{{load_shipping_calculators.flatRateCalculatorCode}}",
+              "arguments": [
+                {
+                  "name": "rate",
+                  "value": "1500"
+                }
+              ]
+            },
+            "fulfillmentHandler": "manual-fulfillment",
+            "shippingZoneIds": [
+              "{{create_oceania_zone.shippingZoneId}}"
+            ]
+          }
+        },
+        "outputs": {
+          "shippingMethodId": "$.data.createShippingMethod.id",
+          "shippingMethodCode": "$.data.createShippingMethod.code",
+          "shippingMethodName": "$.data.createShippingMethod.name"
+        }
+      },
+      "dependencies": [
+        "load_shipping_calculators",
+        "load_shipping_eligibility_checkers",
+        "create_oceania_zone",
+        "update_oceania_zone"
       ]
     }
   ]
